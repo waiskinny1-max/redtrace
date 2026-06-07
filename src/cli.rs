@@ -1,3 +1,4 @@
+use crate::export::ExportFormat;
 use crate::findings::model::{Confidence, FindingStatus};
 use crate::findings::severity::Severity;
 use crate::report::{ReportFormat, ReportProfile};
@@ -81,6 +82,20 @@ enum Commands {
         profile: ReportProfile,
         #[arg(long)]
         out: Option<PathBuf>,
+    },
+
+    /// Export a client-ready engagement package.
+    Export {
+        #[arg(long, value_enum, default_value_t = ExportFormat::Zip)]
+        format: ExportFormat,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+
+    /// Create safe demo workspaces.
+    Sample {
+        #[command(subcommand)]
+        command: SampleCommands,
     },
 
     /// Launch terminal operator console placeholder.
@@ -181,6 +196,16 @@ enum EvidenceCommands {
 }
 
 #[derive(Debug, Subcommand)]
+enum SampleCommands {
+    Create {
+        #[arg(long, default_value = "demo-redtrace")]
+        path: PathBuf,
+        #[arg(long)]
+        force: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
 enum TimelineCommands {
     Add {
         event: String,
@@ -273,6 +298,10 @@ pub fn run() -> Result<()> {
             MapCommands::List { finding } => crate::mappings::list(finding),
         },
         Commands::Report { format, profile, out } => crate::report::generate(format, profile, out),
+        Commands::Export { format, out } => crate::export::commands::run(format, out),
+        Commands::Sample { command } => match command {
+            SampleCommands::Create { path, force } => crate::sample::commands::create(path, force),
+        },
         Commands::Tui => crate::tui::run(),
     }
 }

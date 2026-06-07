@@ -1,10 +1,12 @@
-# Architecture
+# redtrace architecture
 
-redtrace is a local-first Rust CLI. It intentionally stores engagement data in
-plain YAML and JSONL files so operators and reviewers can inspect the workspace
-without a database browser.
+redtrace is a local-first Rust CLI for documenting authorized red-team and
+penetration-testing engagements. It intentionally avoids exploit execution,
+scanning, credential collection, persistence, phishing, or bypass logic.
 
-## Workspace layout
+## Workspace
+
+Each engagement is stored in a local `.redtrace/` directory:
 
 ```text
 .redtrace/
@@ -17,39 +19,77 @@ without a database browser.
     EV-001/
       original.txt
       metadata.yaml
-  timeline.jsonl
-  mappings/
   reports/
+  mappings/
+  timeline.jsonl
 ```
 
-## Design rules
+The workspace is file-based rather than database-backed so reviewers can inspect
+and version the artifacts directly.
 
-1. **Local-first**: no telemetry, no cloud dependency, no remote upload.
-2. **Terminal-first**: CLI now, sober TUI later.
-3. **Report-first**: every object should feed a client-ready deliverable.
-4. **Evidence integrity**: every evidence object stores a SHA-256 hash and can be verified later.
-5. **Scope discipline**: out-of-scope assets and excluded targets are treated as validation problems.
-6. **Safe public posture**: the project documents authorized work. It does not exploit, scan, persist, bypass, phish, or collect credentials.
+## Core modules
 
-## Main modules
-
-| Module | Role |
+| Module | Purpose |
 |---|---|
-| `engagement` | Workspace initialization and status |
+| `engagement` | Engagement metadata and workspace initialization |
 | `scope` | Scope rules, exclusions, and target checks |
 | `assets` | Asset inventory and scope status |
-| `findings` | Finding lifecycle and evidence references |
-| `evidence` | Evidence vault, hashing, verification, and chain-of-custody |
-| `timeline` | JSONL activity log |
-| `mappings` | ATT&CK, OWASP WSTG, and NIST CSF tags |
-| `validation` | Completeness, scope, and integrity checks |
-| `report` | Markdown/HTML report generation and report profiles |
-| `doctor` | Local workspace health checks |
-| `tui` | Future terminal operator console |
+| `findings` | Finding lifecycle, severity, confidence, evidence links |
+| `evidence` | Evidence vault, SHA-256 hashing, chain-of-custody |
+| `timeline` | JSONL chronological event log |
+| `mappings` | MITRE ATT&CK, OWASP WSTG, and NIST CSF references |
+| `validation` | Completeness, scope, and evidence integrity checks |
+| `report` | Markdown and print-friendly HTML report generation |
+| `export` | Client-ready zip package assembly |
+| `sample` | Safe demo workspace generation |
+| `tui` | Placeholder for future terminal operator console |
 
-## v0.2 quality gates
+## Export pipeline
 
-`redtrace validate --strict` is intended for serious local review and CI-style
-checks. It fails when critical or error-level issues exist, including evidence
-hash mismatches, out-of-scope assets, missing severity, and missing
-recommendations.
+`redtrace export --format zip` stages a delivery package under
+`.redtrace/reports/export-staging`, generates fresh report and evidence integrity
+artifacts, zips the staged files, then removes the staging directory.
+
+The zip contains:
+
+```text
+report.md
+report.html
+chain-of-custody.md
+hashes.txt
+metadata.yaml
+timeline.jsonl
+evidence/
+```
+
+## Evidence model
+
+Evidence is copied into the local vault and hashed immediately:
+
+```yaml
+id: EV-001
+finding_id: F-001
+asset_id: A-001
+evidence_type: terminal-output
+original_filename: evidence.txt
+stored_path: evidence/EV-001/original.txt
+sha256: <hash>
+operator_note: Lab-safe reproduction notes.
+created_at: <timestamp>
+```
+
+Verification recomputes the current file hash and compares it to the stored
+metadata hash.
+
+## Validation stance
+
+Strict validation should fail when the workspace contains blocking delivery
+issues such as:
+
+- evidence hash mismatch;
+- out-of-scope or excluded asset;
+- finding without severity;
+- finding without recommendation.
+
+Warnings cover non-blocking completeness gaps such as missing confidence,
+summary, impact, evidence, or ROE detail.
