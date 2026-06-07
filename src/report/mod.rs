@@ -22,9 +22,27 @@ impl std::fmt::Display for ReportFormat {
     }
 }
 
-pub fn generate(format: ReportFormat, out: Option<PathBuf>) -> Result<()> {
+#[derive(Debug, Clone, ValueEnum)]
+pub enum ReportProfile {
+    Executive,
+    Technical,
+    Full,
+}
+
+impl std::fmt::Display for ReportProfile {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let value = match self {
+            Self::Executive => "executive",
+            Self::Technical => "technical",
+            Self::Full => "full",
+        };
+        write!(f, "{value}")
+    }
+}
+
+pub fn generate(format: ReportFormat, profile: ReportProfile, out: Option<PathBuf>) -> Result<()> {
     match format {
-        ReportFormat::Markdown => markdown::generate(out),
-        ReportFormat::Html => html::generate(out),
+        ReportFormat::Markdown => markdown::generate(out, profile),
+        ReportFormat::Html => html::generate(out, profile),
     }
 }

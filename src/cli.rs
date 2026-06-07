@@ -1,6 +1,6 @@
 use crate::findings::model::{Confidence, FindingStatus};
 use crate::findings::severity::Severity;
-use crate::report::ReportFormat;
+use crate::report::{ReportFormat, ReportProfile};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
@@ -27,8 +27,15 @@ enum Commands {
     /// Print engagement status and object counts.
     Status,
 
-    /// Validate completeness and evidence integrity.
-    Validate,
+    /// Check binary and local workspace health.
+    Doctor,
+
+    /// Validate completeness, scope hygiene, and evidence integrity.
+    Validate {
+        /// Return a failing exit code when critical/error issues are found.
+        #[arg(long)]
+        strict: bool,
+    },
 
     /// Manage authorized scope and exclusions.
     Scope {
@@ -70,6 +77,8 @@ enum Commands {
     Report {
         #[arg(long, value_enum, default_value_t = ReportFormat::Markdown)]
         format: ReportFormat,
+        #[arg(long, value_enum, default_value_t = ReportProfile::Full)]
+        profile: ReportProfile,
         #[arg(long)]
         out: Option<PathBuf>,
     },
@@ -164,6 +173,11 @@ enum EvidenceCommands {
     Show { id: String },
     Verify { id: String },
     VerifyAll,
+    /// Print or export chain-of-custody data for all evidence.
+    Chain {
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -210,7 +224,8 @@ pub fn run() -> Result<()> {
     match cli.command {
         Commands::Init { name, client, roe } => crate::engagement::commands::init(name, client, roe),
         Commands::Status => crate::engagement::commands::status(),
-        Commands::Validate => crate::validation::run(),
+        Commands::Doctor => crate::doctor::run(),
+        Commands::Validate { strict } => crate::validation::run(strict),
         Commands::Scope { command } => match command {
             ScopeCommands::Add { value, label, notes } => crate::scope::commands::add(value, label, notes),
             ScopeCommands::Exclude { value, reason } => crate::scope::commands::exclude(value, reason),
@@ -244,6 +259,7 @@ pub fn run() -> Result<()> {
             EvidenceCommands::Show { id } => crate::evidence::commands::show(id),
             EvidenceCommands::Verify { id } => crate::evidence::commands::verify(id).map(|_| ()),
             EvidenceCommands::VerifyAll => crate::evidence::commands::verify_all(),
+            EvidenceCommands::Chain { out } => crate::evidence::commands::chain(out),
         },
         Commands::Timeline { command } => match command {
             TimelineCommands::Add { event, ref_id } => crate::timeline::commands::add(event, ref_id),
@@ -256,7 +272,7 @@ pub fn run() -> Result<()> {
             MapCommands::Csf { finding, function } => crate::mappings::csf::add(finding, function),
             MapCommands::List { finding } => crate::mappings::list(finding),
         },
-        Commands::Report { format, out } => crate::report::generate(format, out),
+        Commands::Report { format, profile, out } => crate::report::generate(format, profile, out),
         Commands::Tui => crate::tui::run(),
     }
 }

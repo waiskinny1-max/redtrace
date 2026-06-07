@@ -140,6 +140,80 @@ pub fn verify_all() -> Result<()> {
     Ok(())
 }
 
+
+pub fn chain(out: Option<PathBuf>) -> Result<()> {
+    let evidence = load_all()?;
+    let mut markdown = String::new();
+    let mut failed = 0usize;
+
+    use std::fmt::Write as _;
+    writeln!(markdown, "# Evidence Chain of Custody")?;
+    writeln!(markdown)?;
+    writeln!(markdown, "| ID | Status | Original Filename | Type | Finding | Asset | SHA-256 | Stored Path |")?;
+    writeln!(markdown, "|---|---|---|---|---|---|---|---|")?;
+
+    println!("Evidence Chain");
+    println!();
+
+    for item in &evidence {
+        let (ok, current_hash) = verification_snapshot(item)?;
+        let status = if ok {
+            "OK"
+        } else {
+            failed += 1;
+            "FAILED"
+        };
+        println!(
+            "{:<7} {:<7} {:<28} finding={} asset={}",
+            item.id,
+            status,
+            item.original_filename,
+            item.finding_id.as_deref().unwrap_or("-"),
+            item.asset_id.as_deref().unwrap_or("-")
+        );
+
+        writeln!(
+            markdown,
+            "| {} | {} | {} | {} | {} | {} | `{}` | `{}` |",
+            item.id,
+            status,
+            item.original_filename,
+            item.evidence_type,
+            item.finding_id.as_deref().unwrap_or("-"),
+            item.asset_id.as_deref().unwrap_or("-"),
+            item.sha256,
+            item.stored_path.display()
+        )?;
+
+        if !ok {
+            writeln!(markdown)?;
+            writeln!(markdown, "> Hash mismatch for {}: stored `{}`, current `{}`", item.id, item.sha256, current_hash)?;
+            writeln!(markdown)?;
+        }
+    }
+
+    if let Some(out) = out {
+        if let Some(parent) = out.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(&out, markdown)?;
+        println!();
+        println!("wrote chain-of-custody report to {}", out.display());
+    }
+
+    println!();
+    println!("evidence files: {}", evidence.len());
+    println!("failed verification: {failed}");
+    Ok(())
+}
+
+fn verification_snapshot(evidence: &Evidence) -> Result<(bool, String)> {
+    let current_path = require_workspace()?.join(&evidence.stored_path);
+    let current_hash = sha256_file(&current_path)?;
+    Ok((current_hash == evidence.sha256, current_hash))
+}
+
+
 pub fn verify_loaded(evidence: &Evidence) -> Result<bool> {
     let current_path = require_workspace()?.join(&evidence.stored_path);
     let current_hash = sha256_file(&current_path)?;
