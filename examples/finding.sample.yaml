@@ -1,0 +1,22 @@
+id: F-001
+title: Weak access control on admin endpoint
+severity: high
+status: open
+asset_ids:
+  - A-001
+summary: The application exposed an administrative function without enforcing the expected server-side authorization control.
+impact: A low-privileged user may access functionality intended for administrators.
+recommendation: Enforce server-side authorization checks on all privileged routes and validate authorization decisions independently of client-side state.
+evidence_ids:
+  - EV-001
+attack_mappings:
+  - tactic: TA0003
+    technique: T1078
+owasp_mappings:
+  - WSTG-v42-ATHZ-01
+csf_mappings:
+  - protect
+confidence: confirmed
+notes: []
+created_at: "2026-06-07T10:12:00Z"
+updated_at: "2026-06-07T10:20:00Z"
